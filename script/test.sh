@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=1 python -u ../test.py --cluster_size 64 --feature_size 2048 --batch_size 128 --max_frames 150 --hidden_size 1024 --num_classes 239 --epoch_num 80 --root "/workspace/untrimmed-data-xcm/FCVID-fea/" --label "../labels/FCVID/FCVID_test.txt" --sep "," --save_model "../model/FCVID/NetVLAD_epoch5.pt" --truncate 1
