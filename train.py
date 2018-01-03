@@ -40,8 +40,7 @@ NetVLAD = NetVLADModelLF(cluster_size=args.cluster_size,
                          num_classes=args.num_classes,
                          add_bn=True,
                          truncate=args.truncate,
-                         use_moe=False,
-                         attention=True)
+                         use_moe=False)
 
 if torch.cuda.is_available():
     NetVLAD.cuda()

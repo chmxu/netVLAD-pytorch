@@ -90,24 +90,28 @@ class MoeModel(nn.Module):
         return probabilities_by_class_and_batch.view([-1, self.num_classes])
 
 class NetVLADModelLF(nn.Module):
-    def __init__(self, cluster_size, max_frames, feature_size, hidden_size, num_classes, add_bn=False, use_moe=True, truncate=True, attention=True):
+    def __init__(self, cluster_size, max_frames, feature_size, hidden_size, num_classes, add_bn=False, use_moe=True, truncate=True, attention=False, use_VLAD=False):
         super(NetVLADModelLF, self).__init__()
         self.feature_size = feature_size
         self.max_frames = max_frames
         self.cluster_size = cluster_size
-        self.video_NetVLAD = NetVLAD(self.feature_size, 100, self.cluster_size, truncate=truncate, add_bn=add_bn) 
+        self.video_NetVLAD = NetVLAD(self.feature_size, 100, self.cluster_size, truncate=truncate, add_bn=add_bn) if use_VLAD else None
         self.batch_norm_input = nn.BatchNorm1d(feature_size, eps=1e-3, momentum=0.01)
         self.batch_norm_activ = nn.BatchNorm1d(hidden_size, eps=1e-3, momentum=0.01)
-        self.linear_1 = nn.Linear(cluster_size * self.feature_size / 2, hidden_size) if truncate else nn.Linear(cluster_size * self.feature_size, hidden_size)
+        if use_VLAD:
+            self.linear_1 = nn.Linear(cluster_size * self.feature_size / 2, hidden_size) if truncate else nn.Linear(cluster_size * self.feature_size, hidden_size)
+        else:
+            self.linear_1 = nn.Linear(self.feature_size, hidden_size)
         self.relu = nn.ReLU6()
         self.linear_2 = nn.Linear(hidden_size, num_classes)
         self.s = nn.Sigmoid()
-        self.moe = MoeModel(num_classes, hidden_size)
-	self.Attn = selfAttn(feature_size, max_frames, 4096, 100)
+        self.moe = MoeModel(num_classes, hidden_size) if use_moe else None
+	self.Attn = selfAttn(feature_size, max_frames, 4096, 100) if attention else None
         self.add_bn = add_bn
 	self.truncate = truncate
         self.use_moe = use_moe
 	self.attention = attention
+        self.use_VLAD = use_VLAD
     def forward(self, model_input):
         #import pdb;pdb.set_trace()
         reshaped_input = model_input.view([-1, self.feature_size])
@@ -115,9 +119,12 @@ class NetVLADModelLF(nn.Module):
             reshaped_input = self.batch_norm_input(reshaped_input)
         if self.attention:
             model_input = self.Attn(reshaped_input.view([-1, self.max_frames, self.feature_size]))
-        vlad = self.video_NetVLAD(model_input.view([-1, self.feature_size]))
+        if self.use_VLAD:
+            output = self.video_NetVLAD(model_input.view([-1, self.feature_size]))
+        else:
+            output, _ = torch.max(model_input.view([model_input.shape[0], -1, self.feature_size]), dim=1)
         if self.add_bn:
-            activation = self.batch_norm_activ(self.linear_1(vlad))
+            activation = self.batch_norm_activ(self.linear_1(output))
         activation = self.relu(activation)
         if self.use_moe:
             logits = self.moe(activation)
