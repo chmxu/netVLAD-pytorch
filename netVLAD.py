@@ -125,6 +125,7 @@ class NetVLADModelLF(nn.Module):
             output, _ = torch.max(model_input.view([model_input.shape[0], -1, self.feature_size]), dim=1)
         if self.add_bn:
             activation = self.batch_norm_activ(self.linear_1(output))
+	    #activation = self.linear_1(output)
         activation = self.relu(activation)
         if self.use_moe:
             logits = self.moe(activation)
